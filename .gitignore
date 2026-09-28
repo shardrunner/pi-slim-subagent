@@ -1,0 +1,7 @@
+node_modules/
+*.dotdropbak
+*.tgz
+coverage/
+.env
+.env.*
+!.env.example

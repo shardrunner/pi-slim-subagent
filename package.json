@@ -1,0 +1,56 @@
+{
+	"name": "pi-slim-subagent",
+	"version": "0.1.0",
+	"description": "Opinionated in-process subagents for Pi with bounded handoffs and explicit continuations",
+	"type": "module",
+	"license": "MIT",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"subagent"
+	],
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"files": [
+		"*.ts",
+		"!*.test.ts",
+		"!sdk-smoke.ts",
+		"examples/",
+		"README.md",
+		"SECURITY.md",
+		"LICENSE",
+		"NOTICE",
+		"docs/architecture.md",
+		"docs/benchmarks.md"
+	],
+	"scripts": {
+		"test": "node --test *.test.ts",
+		"typecheck": "tsc --noEmit",
+		"check": "npm run typecheck && npm run format:check && npm test",
+		"test:package": "node --test package.test.ts",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-agent-core": "*",
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*",
+		"typebox": "*"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-agent-core": "0.86.1",
+		"@earendil-works/pi-ai": "0.86.1",
+		"@earendil-works/pi-coding-agent": "0.86.1",
+		"@earendil-works/pi-tui": "0.86.1",
+		"@types/node": "^24.0.0",
+		"prettier": "3.6.2",
+		"typescript": "^5.9.3"
+	}
+}

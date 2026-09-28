@@ -1,0 +1,11 @@
+This extension builds on the MIT-licensed subagent example in Pi:
+https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent/examples/extensions/subagent
+
+Original example copyright (c) 2025 Mario Zechner.
+The applicable MIT notice is preserved in LICENSE.
+
+This project adds in-process SDK execution, explicit continuations, admission
+control, bounded handoffs, run tracking, and a guided implement/review protocol.
+It is an independent personal tool, not an official Pi component.
+
+Installed dependencies retain their respective licenses.
