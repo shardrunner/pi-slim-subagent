@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, lstatSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	lstatSync,
+	mkdirSync,
+	mkdtempSync,
+	realpathSync,
+	rmSync,
+	unlinkSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -60,7 +70,8 @@ function toolResultEntry(
 }
 
 function withTempDirectory(fn: (root: string) => void): void {
-	const root = mkdtempSync(join(tmpdir(), "pi-continuation-test-"));
+	// Canonical root: tmpdir() may be a symlink (macOS /var -> /private/var).
+	const root = realpathSync(mkdtempSync(join(tmpdir(), "pi-continuation-test-")));
 	try {
 		fn(root);
 	} finally {

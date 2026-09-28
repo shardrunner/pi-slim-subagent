@@ -1874,7 +1874,8 @@ test("passes an internal continuation target and adapts only the committed snaps
 });
 
 test("fails accepted continuation turns that cannot produce a durable snapshot without locator leakage", async () => {
-	const root = mkdtempSync(path.join(os.tmpdir(), "pi-continuation-commit-"));
+	// Canonical root: tmpdir() may be a symlink (macOS /var -> /private/var).
+	const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "pi-continuation-commit-")));
 	try {
 		const parentDirectory = path.join(root, "parent-locator-directory");
 		mkdirSync(parentDirectory, { recursive: true, mode: 0o700 });
