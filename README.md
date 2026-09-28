@@ -8,7 +8,7 @@ This builds on Pi's subagent example, replacing subprocess-per-task execution wi
 
 ## Quick start
 
-Requires **Pi 0.86.1+** (`@earendil-works` packages), **Node 24+**, Linux/macOS. Development dependencies pin **0.86.1**; newer versions are intended targets, not a guarantee against upstream API changes. Optional process/benchmark diagnostics require Linux.
+Requires **Pi 0.87.1+** (`@earendil-works` packages), **Node 24+**, Linux/macOS. Development dependencies pin **0.87.1**; newer versions are intended targets, not a guarantee against upstream API changes. Optional process/benchmark diagnostics require Linux.
 
 From a clone of this repository:
 
