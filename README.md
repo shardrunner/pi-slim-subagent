@@ -10,7 +10,13 @@ This builds on Pi's subagent example, replacing subprocess-per-task execution wi
 
 Requires **Pi 0.87.1+** (`@earendil-works` packages), **Node 24+**, Linux/macOS. Development dependencies pin **0.87.1**; newer versions are intended targets, not a guarantee against upstream API changes. Optional process/benchmark diagnostics require Linux.
 
-From a clone of this repository:
+Install from GitHub:
+
+```bash
+pi install git:github.com/shardrunner/pi-slim-subagent
+```
+
+Or, for development, from a clone of this repository:
 
 ```bash
 npm ci
