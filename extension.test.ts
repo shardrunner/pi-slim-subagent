@@ -10,12 +10,14 @@ import {
 	SettingsManager,
 	DefaultResourceLoader,
 	createAgentSession,
+	createCodemodeExtension,
 	initTheme,
 	type ExtensionAPI,
-	type ExtensionContext,
+	type ExtensionToolContext,
 	type ToolDefinition,
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import register from "./index.ts";
 import { renderAdvancedDispatchResult, renderCompactDispatchResult } from "./renderers.ts";
 import { parseAgentDefinition, loadAgentsFromDir } from "./agents.ts";
@@ -155,8 +157,12 @@ test(
 				sessionManager: parent,
 				hasUI: true,
 				ui: { notify: (message: string, level?: string) => notifications.push({ message, level }) },
-			} as unknown as ExtensionContext;
+			} as unknown as ExtensionToolContext;
 			register(pi, async () => ({ modelRuntime }));
+			for (const name of ["load_subagents", "subagent", "subagent_advanced"]) {
+				assert.equal(tools.get(name)!.exposure, "model-only");
+			}
+			assert.equal(events.has("tool_result"), false);
 			await events.get("session_start")!({}, ctx);
 			const startupWarning = notifications.find(({ message }) => message.includes(malformedPath));
 			assert.ok(startupWarning, `missing startup warning for ${malformedPath}`);
@@ -217,6 +223,8 @@ test(
 			]);
 			const fresh = await invoke("subagent", { agent: "test", task: "fresh task" });
 			assert.match(JSON.stringify(fresh.content), /fresh result/);
+			assert.equal(fresh.isError, false);
+			assert.ok(fresh.usage);
 			assert.equal((fresh.details as any).continuation, undefined);
 			assert.ok(
 				notifications.some(({ message, level }) => level === "warning" && message.includes(malformedPath)),
@@ -235,6 +243,7 @@ test(
 			});
 			const record = (created.details as any).continuation;
 			assert.ok(record, JSON.stringify(created));
+			assert.equal(created.isError, false);
 			assert.equal(record.action, "create");
 			const durableTranscripts = readdirSync(root, { recursive: true, encoding: "utf8" }).filter((file) =>
 				file.endsWith(".jsonl"),
@@ -273,15 +282,31 @@ test(
 			);
 			assert.notEqual((resumed.details as any).continuation?.childLeafId, record.childLeafId);
 			assert.match(JSON.stringify(resumed.content), /walnut/);
+			assert.equal(resumed.isError, false);
 			assert.deepEqual(
 				readdirSync(root, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".jsonl")),
 				durableTranscripts,
 			);
 
 			const failure = await invoke("subagent", { agent: "missing", task: "test" });
-			assert.deepEqual(events.get("tool_result")!({ toolName: "subagent", details: failure.details }), {
-				isError: true,
+			assert.equal(failure.isError, true);
+			assert.equal((failure.details as any).results[0].state, "failed");
+			assert.ok(failure.usage);
+			const advancedFailure = await invoke("subagent_advanced", { agent: "missing", task: "test" });
+			assert.equal(advancedFailure.isError, true);
+			faux.setResponses([fauxAssistantMessage("parallel success")]);
+			const mixed = await invoke("subagent_advanced", {
+				tasks: [
+					{ agent: "test", task: "test" },
+					{ agent: "missing", task: "test" },
+				],
 			});
+			assert.equal(mixed.isError, true);
+			assert.deepEqual(
+				(mixed.details as any).results.map((item: any) => item.state),
+				["succeeded", "failed"],
+			);
+			assert.ok(mixed.usage);
 			await assert.rejects(
 				invoke("subagent_advanced", {
 					agent: "malformed",
@@ -317,6 +342,110 @@ test(
 				if (value === undefined) delete process.env[key];
 				else process.env[key] = value;
 			}
+			rmSync(root, { recursive: true, force: true });
+		}
+	},
+);
+
+test(
+	"codemode-only keeps orchestration direct and native failures survive the SDK pipeline",
+	{ timeout: 15_000 },
+	async () => {
+		const root = mkdtempSync(join(tmpdir(), "subagent-exposure-"));
+		const oldDir = process.env.PI_CODING_AGENT_DIR;
+		process.env.PI_CODING_AGENT_DIR = root;
+		try {
+			const modelRuntime = await ModelRuntime.create({
+				credentials: new InMemoryCredentialStore(),
+				modelsPath: null,
+				modelsStorePath: join(root, "models-store.json"),
+				allowModelNetwork: false,
+				refreshOnCreate: false,
+			});
+			const faux = fauxProvider({ provider: "exposure-test", tokensPerSecond: Infinity });
+			modelRuntime.registerNativeProvider(faux.provider);
+			const names = ["load_subagents", "subagent", "subagent_advanced"];
+			const settingsManager = SettingsManager.inMemory({ defaultTools: ["codemode"], compaction: { enabled: false } });
+			const loader = new DefaultResourceLoader({
+				cwd: root,
+				agentDir: root,
+				settingsManager,
+				noExtensions: true,
+				noSkills: true,
+				extensionFactories: [
+					(pi) => {
+						register(pi, async () => {
+							throw new Error("Must not start a child");
+						});
+						pi.registerTool({
+							name: "probe",
+							label: "Probe",
+							description: "Test nested exposure",
+							exposure: "model-only",
+							parameters: Type.Object({}),
+							async execute(_id, _params, _signal, _update, ctx) {
+								for (const name of names) {
+									assert.ok(!ctx.tools.some((tool) => tool.name === name));
+									const outcome = await ctx.executeTool(name, {});
+									assert.equal(outcome.isError, true);
+								}
+								return { content: [{ type: "text", text: "nested calls rejected" }], details: undefined };
+							},
+						});
+					},
+					createCodemodeExtension({ mode: "only" }),
+				],
+			});
+			await loader.reload();
+			const { session } = await createAgentSession({
+				cwd: root,
+				agentDir: root,
+				modelRuntime,
+				model: faux.getModel(),
+				settingsManager,
+				resourceLoader: loader,
+				sessionManager: SessionManager.inMemory(root),
+			});
+			try {
+				await session.bindExtensions({});
+				assert.ok(session.getActiveToolNames().includes("codemode"));
+				const call = (name: string, args = {}) =>
+					fauxAssistantMessage([{ type: "toolCall", id: name, name, arguments: args }]);
+				faux.setResponses([
+					(context) => {
+						const declared = getCurrentTools(context.messages).map((tool) => tool.name);
+						assert.ok(declared.includes("load_subagents"));
+						assert.ok(!declared.includes("subagent"));
+						assert.ok(!declared.includes("subagent_advanced"));
+						return call("load_subagents");
+					},
+					(context) => {
+						const declared = getCurrentTools(context.messages).map((tool) => tool.name);
+						for (const name of names) assert.ok(declared.includes(name), name);
+						return call("probe");
+					},
+					call("subagent", { agent: "missing", task: "test" }),
+					fauxAssistantMessage("done"),
+				]);
+				await session.prompt("Test orchestration without children");
+				const probe = session.messages.find((message) => message.role === "toolResult" && message.toolName === "probe");
+				assert.ok(probe && probe.role === "toolResult");
+				assert.equal(probe.isError, false, JSON.stringify(probe.content));
+				assert.match(JSON.stringify(probe.content), /nested calls rejected/);
+				const failure = session.messages.find(
+					(message) => message.role === "toolResult" && message.toolName === "subagent",
+				);
+				assert.ok(failure && failure.role === "toolResult");
+				assert.equal(failure.isError, true);
+				assert.equal((failure.details as any).results[0].state, "failed");
+				assert.ok(failure.usage);
+				assert.match(JSON.stringify(failure.content), /Unknown agent/);
+			} finally {
+				session.dispose();
+			}
+		} finally {
+			if (oldDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+			else process.env.PI_CODING_AGENT_DIR = oldDir;
 			rmSync(root, { recursive: true, force: true });
 		}
 	},
@@ -373,7 +502,7 @@ test(
 				sessionManager: parent,
 				hasUI: true,
 				ui: { notify: () => undefined },
-			} as unknown as ExtensionContext;
+			} as unknown as ExtensionToolContext;
 			register(pi, services);
 			const invoke = (callId: string, params: Record<string, unknown>, signal?: AbortSignal) =>
 				tools.get("subagent_advanced")!.execute(callId, params, signal, undefined, ctx);
@@ -387,6 +516,8 @@ test(
 			controller.abort();
 			const first = await firstPending;
 			assert.equal((first.details as any).results[0].state, "cancelled");
+			assert.equal(first.isError, true);
+			assert.equal((first.details as any).continuation, undefined);
 
 			const contentionController = new AbortController();
 			contentionController.abort();

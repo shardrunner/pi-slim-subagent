@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { tmpdir } from "node:os";
+import type { PromptOptions } from "@earendil-works/pi-coding-agent";
 import { ActiveRunRegistry } from "./run-registry.ts";
 import {
 	boundText,
@@ -103,10 +104,10 @@ for (const cause of ["aborted", "timedOut"] as const) {
 			let disposed = false;
 			const session: SessionLike = {
 				subscribe: () => () => {},
-				async prompt(_text: string, options?: { preflightResult?: (success: boolean) => void }) {
+				async prompt(_text: string, options?: PromptOptions) {
 					startPreparation();
 					await prepared;
-					options?.preflightResult?.(true);
+					options?.preflightResult?.("started");
 					executed = true;
 				},
 				async abort() {
@@ -141,6 +142,28 @@ for (const cause of ["aborted", "timedOut"] as const) {
 			assert.equal(JSON.stringify(result), snapshot);
 		});
 	}
+}
+
+for (const disposition of ["handled", "queued"] as const) {
+	test(`prompt preflight ${disposition} is a failed leaf dispatch without agent events`, async () => {
+		let disposed = false;
+		const session: SessionLike = {
+			subscribe: () => () => {},
+			async prompt(_text: string, options?: PromptOptions) {
+				options?.preflightResult?.(disposition);
+			},
+			abort: async () => {},
+			dispose: () => {
+				disposed = true;
+			},
+		};
+		const result = await collectSdkTask({ ...request, timeoutSeconds: 0 }, session);
+		assert.equal(result.exitCode, 1);
+		assert.equal(result.stopReason, "error");
+		assert.match(result.errorMessage ?? "", new RegExp(`prompt was ${disposition}; expected started`));
+		assert.deepEqual(result.messages, []);
+		assert.equal(disposed, true);
+	});
 }
 
 test("unsettled disposal is bounded and late cleanup cannot mutate the result", async () => {

@@ -8,7 +8,7 @@ This builds on Pi's subagent example, replacing subprocess-per-task execution wi
 
 ## Quick start
 
-Requires **Pi 0.87.1+** (`@earendil-works` packages), **Node 24+**, Linux/macOS. Development dependencies pin **0.87.1**; newer versions are intended targets, not a guarantee against upstream API changes. Optional process/benchmark diagnostics require Linux.
+Requires **Pi 0.99.0+** (`@earendil-works` packages), **Node 24+**, Linux/macOS. Development dependencies pin **0.99.0**; newer versions are intended targets, not a guarantee against upstream API changes. Optional process/benchmark diagnostics require Linux.
 
 Install from GitHub:
 
@@ -55,6 +55,8 @@ Once hosted, the same package can be installed with `pi install git:github.com/<
 Only `load_subagents` is active at startup (plus a one-line prompt snippet so the model knows delegation exists). Calling it enables both dispatch tools and returns the agent catalog; the catalog is no longer embedded in an always-visible schema. Agent definitions are rediscovered on dispatch; `/reload` refreshes the advertised catalog. In `print`/JSON mode, UI-only commands do not provide interactive inspection.
 
 On `session_start`, both dispatch tools stay hidden unless the branch history shows a prior loader call (via persisted `details.added`), so resume restores a previously loaded loadout without leaking schemas into fresh sessions. If compaction drops the loader record, the model simply calls `load_subagents` again (one cheap call).
+
+All three orchestration tools use `model-only` exposure: the parent model calls them directly, including in codemode-only mode. They are not callable through codemode scripts or `ctx.executeTool()`, preserving the direct transcript records used for activation and continuations.
 
 Advanced activation and “only when requested” instructions are **model guidance**, not an authorization boundary.
 

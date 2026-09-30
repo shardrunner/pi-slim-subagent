@@ -77,7 +77,6 @@ import {
 	ADVANCED_SUBAGENT_LOADER_TOOL_NAME,
 	ADVANCED_SUBAGENT_TOOL_NAME,
 	COMPACT_SUBAGENT_TOOL_NAME,
-	DISPATCH_TOOL_NAMES,
 } from "./tool-names.ts";
 const MAX_PARALLEL_TASKS = 8;
 const DETAILS_TEXT_MAX_BYTES = 2 * 1024;
@@ -343,6 +342,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 
 	pi.registerTool({
 		name: COMPACT_SUBAGENT_TOOL_NAME,
+		exposure: "model-only",
 		label: "Subagent",
 		description: [
 			"Delegate one fresh task to a user-scoped subagent.",
@@ -408,6 +408,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 						),
 					},
 				],
+				isError: isFailedResult(result),
 				details: makeDetails([result], elapsedMs),
 				usage: aggregateNestedUsage([result.usage]),
 			};
@@ -430,6 +431,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 
 	pi.registerTool({
 		name: ADVANCED_SUBAGENT_LOADER_TOOL_NAME,
+		exposure: "model-only",
 		label: "Load Subagents",
 		description:
 			"Enable subagent delegation for this session: single fresh dispatches plus advanced parallel, continuation, project-local, and override modes. Call when delegating work to a specialized subagent.",
@@ -519,19 +521,9 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 		},
 	});
 
-	// Pi 0.80.7's AgentToolResult has no isError field. The supported
-	// tool_result event result preserves details while marking real failures.
-	pi.on("tool_result", (event) => {
-		if (!DISPATCH_TOOL_NAMES.has(event.toolName) || !event.details || typeof event.details !== "object") return;
-		const details = event.details as Partial<SubagentDetails>;
-		if (Array.isArray(details.results) && details.results.some((result) => isFailedResult(result))) {
-			return { isError: true };
-		}
-		return undefined;
-	});
-
 	pi.registerTool({
 		name: ADVANCED_SUBAGENT_TOOL_NAME,
+		exposure: "model-only",
 		label: "Subagent Advanced",
 		description: [
 			"Delegate tasks to specialized subagents. Dispatches are fresh by default; only an explicit top-level single-mode continuation (create or resume) reuses context.",
@@ -762,6 +754,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 										text: boundModelVisibleContent(`Agent ${formatResultStatus(result) || "failed"}: ${errorMsg}`),
 									},
 								],
+								isError: true,
 								details: makeDetails("single")([result], elapsedMs),
 								usage: aggregateNestedUsage([result.usage]),
 							};
@@ -773,6 +766,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 									text: boundModelVisibleContent(getCurrentOutput(result) || "(no output)"),
 								},
 							],
+							isError: false,
 							details: makeDetails("single")([result], elapsedMs, true),
 							usage: aggregateNestedUsage([result.usage]),
 						};
@@ -824,6 +818,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 							text: formatParallelHandoff(results),
 						},
 					],
+					isError: results.some(isFailedResult),
 					details: makeDetails("parallel")(results, elapsedMs),
 					usage: aggregateNestedUsage(results.map((item) => item.usage)),
 				};
@@ -866,6 +861,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 								text: boundModelVisibleContent(`Agent ${formatResultStatus(result) || "failed"}: ${errorMsg}`),
 							},
 						],
+						isError: true,
 						details: makeDetails("single")([result], elapsedMs),
 						usage: aggregateNestedUsage([result.usage]),
 					};
@@ -877,6 +873,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 							text: boundModelVisibleContent(getCurrentOutput(result) || "(no output)"),
 						},
 					],
+					isError: false,
 					details: makeDetails("single")([result], elapsedMs, true),
 					usage: aggregateNestedUsage([result.usage]),
 				};

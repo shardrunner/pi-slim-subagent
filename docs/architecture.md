@@ -64,9 +64,13 @@ The trade-off is weaker failure isolation. A blocked event loop or uncooperative
 6. Return a stable failure; retain the run registration, scheduler slot, and instance-local continuation lock until cleanup actually completes. Late errors go to an isolated diagnostic sink.
 7. Mark retained slots quarantined. If every slot is quarantined, reject existing waiters and new admissions instead of hanging batches behind unsettled work. A slot becomes available only after actual settlement.
 
+Prompt preflight must report `started`; an unexpected `handled` or `queued` disposition fails the leaf dispatch rather than reporting empty success. The collector still awaits `prompt()` for settled completion.
+
 A timeout is not proof that file writes stopped. Repeating a task while its prior instance remains active can duplicate side effects. Queue waiting is cancellable but does not consume the task's execution deadline.
 
 ## Continuation commitment
+
+The loader and both dispatch tools use `model-only` exposure. Direct parent-model calls persist the tool-result records needed for branch activation and continuation lookup; nested calls through `ctx.executeTool()` (including codemode scripts) are unavailable. Dispatch results mark failure with native `isError` while preserving bounded details and usage.
 
 The parent stores only an accepted continuation pointer in tool-result details. The child transcript is independently persisted by Pi. After an accepted turn, the runner reopens that transcript and verifies:
 

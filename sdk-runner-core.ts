@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { PromptOptions } from "@earendil-works/pi-coding-agent";
 import type { AgentConfig, ThinkingLevel } from "./agents.ts";
 import type { ContinuationRecord } from "./continuation.ts";
 
@@ -332,7 +333,7 @@ export interface AgentSessionEvent {
 
 export interface SessionLike {
 	subscribe(listener: (event: AgentSessionEvent) => void): () => void;
-	prompt(text: string, options?: { preflightResult?: (success: boolean) => void }): Promise<void>;
+	prompt(text: string, options?: Pick<PromptOptions, "preflightResult">): Promise<void>;
 	abort(): Promise<void>;
 	dispose(): void | PromiseLike<void>;
 }
@@ -997,11 +998,14 @@ export async function collectSdkTask(
 			try {
 				const prompt = Promise.resolve().then(() =>
 					session.prompt(`Task: ${request.task}`, {
-						preflightResult: (accepted) => {
+						preflightResult: (disposition) => {
+							if (disposition !== "started") {
+								throw new Error(`Subagent prompt was ${disposition}; expected started`);
+							}
 							// SDK abort only affects existing work. Preparation (auth/compaction) can
 							// finish later, even after we returned a failure with pending settlement.
 							// Pi calls this synchronously before starting the accepted agent run.
-							if (accepted && cancellation?.cause) throw new Error("Subagent cancelled during prompt preparation");
+							if (cancellation?.cause) throw new Error("Subagent cancelled during prompt preparation");
 						},
 					}),
 				);
