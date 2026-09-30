@@ -158,9 +158,9 @@ export interface SubagentDetails {
 	elapsedMs?: number;
 }
 
-function getResultOutput(result: SingleResult): string {
+function getResultOutput(result: SingleResult, isError = isFailedResult(result)): string {
 	const currentOutput = getCurrentOutput(result);
-	if (isFailedResult(result)) return result.errorMessage || result.stderr || currentOutput || "(no output)";
+	if (isError) return result.errorMessage || result.stderr || currentOutput || "(no output)";
 	return currentOutput || "(no output)";
 }
 
@@ -663,6 +663,24 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 					};
 				};
 
+			const finalizeSingleResult = (result: SingleResult, elapsedMs: number): AgentToolResult<SubagentDetails> => {
+				const isError = isFailedResult(result);
+				const output = getResultOutput(result, isError);
+				return {
+					content: [
+						{
+							type: "text",
+							text: boundModelVisibleContent(
+								isError ? `Agent ${formatResultStatus(result) || "failed"}: ${output}` : output,
+							),
+						},
+					],
+					isError,
+					details: makeDetails("single")([result], elapsedMs, !isError),
+					usage: aggregateNestedUsage([result.usage]),
+				};
+			};
+
 			if (continuationPreparation !== undefined) {
 				const preparation = continuationPreparation;
 				let settlement: Promise<void> | undefined;
@@ -745,31 +763,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 						const result = await dispatch();
 						settlement = result.settlement;
 						const elapsedMs = performance.now() - startedAt;
-						if (isFailedResult(result)) {
-							const errorMsg = getResultOutput(result);
-							return {
-								content: [
-									{
-										type: "text",
-										text: boundModelVisibleContent(`Agent ${formatResultStatus(result) || "failed"}: ${errorMsg}`),
-									},
-								],
-								isError: true,
-								details: makeDetails("single")([result], elapsedMs),
-								usage: aggregateNestedUsage([result.usage]),
-							};
-						}
-						return {
-							content: [
-								{
-									type: "text",
-									text: boundModelVisibleContent(getCurrentOutput(result) || "(no output)"),
-								},
-							],
-							isError: false,
-							details: makeDetails("single")([result], elapsedMs, true),
-							usage: aggregateNestedUsage([result.usage]),
-						};
+						return finalizeSingleResult(result, elapsedMs);
 					},
 					() => settlement,
 				);
@@ -851,32 +845,7 @@ export default function (pi: ExtensionAPI, sdkServices = createLazySdkRunnerServ
 					);
 				const result = await dispatch();
 				const elapsedMs = performance.now() - startedAt;
-				const isError = isFailedResult(result);
-				if (isError) {
-					const errorMsg = getResultOutput(result);
-					return {
-						content: [
-							{
-								type: "text",
-								text: boundModelVisibleContent(`Agent ${formatResultStatus(result) || "failed"}: ${errorMsg}`),
-							},
-						],
-						isError: true,
-						details: makeDetails("single")([result], elapsedMs),
-						usage: aggregateNestedUsage([result.usage]),
-					};
-				}
-				return {
-					content: [
-						{
-							type: "text",
-							text: boundModelVisibleContent(getCurrentOutput(result) || "(no output)"),
-						},
-					],
-					isError: false,
-					details: makeDetails("single")([result], elapsedMs, true),
-					usage: aggregateNestedUsage([result.usage]),
-				};
+				return finalizeSingleResult(result, elapsedMs);
 			}
 
 			throw new Error("Unreachable subagent dispatch mode");

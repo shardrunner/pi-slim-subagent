@@ -294,6 +294,14 @@ test(
 			assert.ok(failure.usage);
 			const advancedFailure = await invoke("subagent_advanced", { agent: "missing", task: "test" });
 			assert.equal(advancedFailure.isError, true);
+			assert.deepEqual(advancedFailure.content, [
+				{ type: "text", text: 'Agent failed: Unknown agent: "missing". Available agents: "test".' },
+			]);
+			assert.equal((advancedFailure.details as any).mode, "single");
+			assert.equal((advancedFailure.details as any).results[0].state, "failed");
+			assert.deepEqual((advancedFailure.details as any).results[0].usage, createEmptyUsage());
+			assert.equal((advancedFailure.details as any).continuation, undefined);
+			assert.deepEqual(advancedFailure.usage, failure.usage);
 			faux.setResponses([fauxAssistantMessage("parallel success")]);
 			const mixed = await invoke("subagent_advanced", {
 				tasks: [
