@@ -1,6 +1,6 @@
 # Pi Subagent
 
-> **Disclaimer:** This extension is vibe coded. Use at your own risk.
+> **Disclaimer:** This extension is vibe coded for personal use. Use at your own risk.
 
 An opinionated personal [Pi](https://github.com/earendil-works/pi) extension for delegating focused work without growing the parent conversation into a second workspace.
 
