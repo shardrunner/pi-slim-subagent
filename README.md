@@ -15,7 +15,7 @@ an official Pi component and not a sandbox.
 ## Why
 
 - Long exploration or implementation work fills the main conversation with intermediate tool output, which raises cost and pushes important context out.
-- Parallel subagents need firm limits on concurrency and output size, or they flood the context and compete for resources.
+- The best model differs by task. Dedicated agents let each task use a suitable model, and let a second agent cross-check the first one's work.
 
 ## Features
 
