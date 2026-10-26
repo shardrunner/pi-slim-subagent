@@ -1,8 +1,8 @@
 # Pi Subagent
 
-> **Disclaimer:** This extension is vibe coded for personal use. Use at your own risk.
-
-An opinionated personal [Pi](https://github.com/earendil-works/pi) extension for delegating focused work without growing the parent conversation into a second workspace.
+Delegate focused work to fresh [Pi](https://pi.dev) contexts and bring back
+bounded results, instead of filling the parent conversation with every
+intermediate step.
 
 **Fresh context by default. Explicit continuation when needed. Small handoffs. Visible execution state.**
 
@@ -191,6 +191,11 @@ Do not commit your agent directory, credentials, runtime snapshots, or session t
 | Project trust / cwd rejection              | Trust the project through Pi; use its cwd or a permitted child directory rather than bypassing the check.                                                                 |
 | Capacity quarantined after a timeout       | Unsettled work still owns all slots, so waiting tasks fail rather than hang. Inspect `/agents`; do not reload to bypass active work. See cancellation and recovery above. |
 | Service initialization keeps failing       | Initialization is shared and cached, including failure. Correct configuration, then reload once old work is confirmed stopped.                                            |
+
+## Project status
+
+Developed with AI assistance for personal use. Provided as-is, without support or
+compatibility guarantees. Review the source and documented limitations before use.
 
 ## Development
 
