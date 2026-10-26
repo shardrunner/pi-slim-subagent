@@ -18,6 +18,6 @@ The command sends the parent agent a generated orchestration prompt with unique 
 
 The workflow stops instead of starting another correction loop. Reviewer prompts prohibit builds, tests, edits, and other mutating commands. Findings passed between separate continuations must be included explicitly.
 
-All public subagent dispatches require a finite positive timeout. The default is 1500 seconds (25 minutes), the maximum is 7200 seconds, and the workflow uses the default for both implementors and reviewers. Internal cancellation tests may still use zero to exercise no-timer behavior; zero is not accepted at a dispatch boundary. There is no chain mode; `{previous}` is rejected in single and parallel dispatches.
+All public subagent dispatches require a finite positive timeout. The default is 1500 seconds (25 minutes), the maximum is 7200 seconds, and the workflow uses the default for both implementors and reviewers. Internal cancellation tests may still use zero to exercise no-timer behavior; zero is not accepted at a dispatch boundary. There is no chain mode.
 
 Run focused checks during implementation and corrections. Run full repository gates once after convergence, rerunning them only when a later change can invalidate the result.
